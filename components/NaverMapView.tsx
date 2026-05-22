@@ -1,18 +1,61 @@
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import {
   buildNaverMapHtml,
   getNaverMapWebViewBaseUrl,
+  type MapPolygonOverlay,
+  type MapUserMarker,
 } from '../lib/naverMapHtml';
 
 const CLIENT_ID = process.env.EXPO_PUBLIC_NAVER_MAP_CLIENT_ID ?? '';
 
 type Props = {
   style?: object;
+  overlays?: MapPolygonOverlay[];
+  userMarkers?: MapUserMarker[];
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  mapKey?: string;
 };
 
-export function NaverMapView({ style }: Props) {
+export function NaverMapView({
+  style,
+  overlays,
+  userMarkers = [],
+  center,
+  zoom,
+  mapKey,
+}: Props) {
+  const webRef = useRef<WebView>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  const html = CLIENT_ID
+    ? buildNaverMapHtml(CLIENT_ID, { overlays, userMarkers, center, zoom })
+    : '';
+  const baseUrl = getNaverMapWebViewBaseUrl();
+
+  const markersKey = userMarkers
+    .map((m) => `${m.id}:${m.lat.toFixed(6)},${m.lng.toFixed(6)}`)
+    .join('|');
+
+  useEffect(() => {
+    setMapReady(false);
+  }, [mapKey]);
+
+  useEffect(() => {
+    if (!mapReady || userMarkers.length === 0) return;
+
+    const payload = JSON.stringify(userMarkers);
+    webRef.current?.injectJavaScript(`
+      if (typeof updateUserMarkers === 'function') {
+        updateUserMarkers(${payload});
+      }
+      true;
+    `);
+  }, [mapReady, markersKey, userMarkers]);
+
   if (!CLIENT_ID) {
     return (
       <View style={[styles.fallback, style]}>
@@ -26,11 +69,10 @@ export function NaverMapView({ style }: Props) {
     );
   }
 
-  const html = buildNaverMapHtml(CLIENT_ID);
-  const baseUrl = getNaverMapWebViewBaseUrl();
-
   return (
     <WebView
+      ref={webRef}
+      key={mapKey}
       style={[styles.map, style]}
       source={{ html, baseUrl }}
       originWhitelist={['*']}
@@ -43,6 +85,12 @@ export function NaverMapView({ style }: Props) {
         </View>
       )}
       onMessage={(event) => {
+        try {
+          const data = JSON.parse(event.nativeEvent.data);
+          if (data.type === 'ready') setMapReady(true);
+        } catch {
+          /* ignore */
+        }
         if (__DEV__) {
           console.warn('[NaverMap WebView]', event.nativeEvent.data);
         }

@@ -1,23 +1,26 @@
+import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { NaverMapView } from './components/NaverMapView';
+import { MainTabs } from './navigation/MainTabs';
+import {
+  startWorkLocationSimulation,
+  stopWorkLocationSimulation,
+} from './store/workLocationStore';
 
 export default function App() {
+  useEffect(() => {
+    startWorkLocationSimulation();
+    return () => stopWorkLocationSimulation();
+  }, []);
+
   return (
-    <View style={styles.container}>
-      <NaverMapView style={styles.map} />
-      <StatusBar style="dark" />
-    </View>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <MainTabs />
+        <StatusBar style="dark" />
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  map: {
-    flex: 1,
-  },
-});

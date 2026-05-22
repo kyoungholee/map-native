@@ -31,8 +31,9 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (secrets / client IDs — never commit)
 .env
+.env.example
 .env*.local
 
 # typescript

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -31,10 +31,17 @@ export function NaverMapView({
   const webRef = useRef<WebView>(null);
   const [mapReady, setMapReady] = useState(false);
 
-  const html = CLIENT_ID
-    ? buildNaverMapHtml(CLIENT_ID, { overlays, userMarkers, center, zoom })
-    : '';
-  const baseUrl = getNaverMapWebViewBaseUrl();
+  // NOTE: userMarkers는 10초마다 바뀌므로 HTML/source에 포함하면 WebView가 리로드되어 깜빡임이 생김.
+  // 지도는 유지하고 마커 위치만 updateUserMarkers로 갱신한다.
+  const html = useMemo(() => {
+    if (!CLIENT_ID) return '';
+    return buildNaverMapHtml(CLIENT_ID, { overlays, center, zoom });
+  }, [overlays, center, zoom]);
+
+  const source = useMemo(() => {
+    const baseUrl = getNaverMapWebViewBaseUrl();
+    return { html, baseUrl };
+  }, [html]);
 
   const markersKey = userMarkers
     .map((m) => `${m.id}:${m.lat.toFixed(6)},${m.lng.toFixed(6)}`)
@@ -74,7 +81,7 @@ export function NaverMapView({
       ref={webRef}
       key={mapKey}
       style={[styles.map, style]}
-      source={{ html, baseUrl }}
+      source={source}
       originWhitelist={['*']}
       javaScriptEnabled
       domStorageEnabled

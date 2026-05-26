@@ -12,7 +12,9 @@ export type MapPolygonOverlay = {
   center?: MapPathPoint;
 };
 
-/** GPS — 근무자 현재 위치 */
+export type MapMarkerKind = 'person' | 'dump_truck' | 'forklift';
+
+/** GPS — 인력·장비 현재 위치 */
 export type MapUserMarker = {
   id: string;
   lat: number;
@@ -20,6 +22,7 @@ export type MapUserMarker = {
   name: string;
   role?: string;
   color?: string;
+  kind?: MapMarkerKind;
 };
 
 type MapOptions = {
@@ -54,6 +57,7 @@ export function buildNaverMapHtml(
       name: m.name,
       role: m.role ?? '',
       color: m.color ?? '#16a34a',
+      kind: m.kind ?? 'person',
     })),
   );
 
@@ -129,14 +133,49 @@ export function buildNaverMapHtml(
 
       window.__naverMap = map;
 
-      function userMarkerHtml(name, role, color) {
-        var c = color || '#16a34a';
+      function markerLabelStyle(c) {
+        return 'margin-top:4px;padding:5px 10px;background:' + c + ';color:#fff;font-size:11px;font-weight:800;border-radius:8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.3);letter-spacing:-0.2px;';
+      }
+
+      function markerHtml(m) {
+        var c = m.color || '#16a34a';
+        var kind = m.kind || 'person';
+        var name = m.name || '';
+        var role = m.role || '';
+
+        if (kind === 'dump_truck') {
+          return (
+            '<div style="display:flex;flex-direction:column;align-items:center;">' +
+            '<div style="width:34px;height:22px;background:' + c + ';border:3px solid #fff;border-radius:5px 8px 4px 4px;box-shadow:0 2px 8px rgba(0,0,0,.4);position:relative;">' +
+            '<div style="position:absolute;right:3px;top:3px;width:10px;height:8px;background:rgba(255,255,255,.35);border-radius:2px;"></div>' +
+            '</div>' +
+            '<div style="' + markerLabelStyle(c) + '">🚛 덤프트럭 · ' + name + '</div>' +
+            '</div>'
+          );
+        }
+
+        if (kind === 'forklift') {
+          return (
+            '<div style="display:flex;flex-direction:column;align-items:center;">' +
+            '<svg width="40" height="34" viewBox="0 0 40 34" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));">' +
+            '<rect x="14" y="2" width="5" height="16" rx="1" fill="#4b5563"/>' +
+            '<rect x="4" y="18" width="16" height="3" rx="1" fill="#fbbf24"/>' +
+            '<rect x="4" y="23" width="16" height="3" rx="1" fill="#fbbf24"/>' +
+            '<rect x="22" y="10" width="14" height="16" rx="2" fill="' + c + '" stroke="#fff" stroke-width="2"/>' +
+            '<rect x="24" y="12" width="8" height="6" rx="1" fill="rgba(255,255,255,.35)"/>' +
+            '<circle cx="30" cy="28" r="4" fill="#1f2937" stroke="#fff" stroke-width="1.5"/>' +
+            '<circle cx="12" cy="28" r="3.5" fill="#1f2937" stroke="#fff" stroke-width="1.5"/>' +
+            '</svg>' +
+            '<div style="' + markerLabelStyle(c) + '">포크레인 · ' + name + '</div>' +
+            '</div>'
+          );
+        }
+
         return (
           '<div style="display:flex;flex-direction:column;align-items:center;">' +
           '<div style="width:16px;height:16px;background:' + c + ';border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.35);"></div>' +
-          '<div style="margin-top:4px;padding:4px 8px;background:' + c + ';color:#fff;font-size:11px;font-weight:700;border-radius:6px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25);">' +
-          name + (role ? ' · ' + role : '') +
-          '</div></div>'
+          '<div style="' + markerLabelStyle(c) + '">👤 ' + name + (role ? ' · ' + role : '') + '</div>' +
+          '</div>'
         );
       }
 
@@ -150,13 +189,17 @@ export function buildNaverMapHtml(
           if (window.__userMarkers[m.id]) {
             window.__userMarkers[m.id].setPosition(pos);
           } else {
+            var zIndex = m.kind === 'person' ? 2000 : 2100;
             window.__userMarkers[m.id] = new naver.maps.Marker({
               map: window.__naverMap,
               position: pos,
-              zIndex: 2000,
+              zIndex: zIndex,
               icon: {
-                content: userMarkerHtml(m.name || '', m.role || '', m.color),
-                anchor: new naver.maps.Point(8, 8),
+                content: markerHtml(m),
+                anchor: new naver.maps.Point(
+                  m.kind === 'forklift' ? 20 : m.kind === 'dump_truck' ? 17 : 8,
+                  m.kind === 'forklift' ? 30 : m.kind === 'dump_truck' ? 22 : 8
+                ),
               },
             });
           }

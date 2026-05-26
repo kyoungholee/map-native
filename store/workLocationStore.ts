@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 
 import {
+  INITIAL_EQUIPMENT_LOCATIONS,
   INITIAL_WORKER_LOCATIONS,
   MOCK_WORK_SITE,
+  type EquipmentKind,
 } from '../data/mockWorkLocation';
 import { SEED_SITES } from '../data/seedSites';
 
@@ -26,10 +28,23 @@ export type WorkerLocation = {
   updatedAt: string;
 };
 
+export type EquipmentLocation = {
+  id: string;
+  kind: EquipmentKind;
+  lat: number;
+  lng: number;
+  name: string;
+  label: string;
+  color: string;
+  updatedAt: string;
+};
+
 type WorkLocationStore = {
   siteName: string;
   workers: WorkerLocation[];
+  equipment: EquipmentLocation[];
   getWorker: (id: string) => WorkerLocation | undefined;
+  getEquipment: (id: string) => EquipmentLocation | undefined;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -48,11 +63,33 @@ function createInitialWorkers(): WorkerLocation[] {
   }));
 }
 
+function createInitialEquipment(): EquipmentLocation[] {
+  const now = new Date().toISOString();
+  return INITIAL_EQUIPMENT_LOCATIONS.map((e) => ({
+    ...e,
+    updatedAt: now,
+  }));
+}
+
+function moveWithinSite<T extends { lat: number; lng: number; updatedAt: string }>(
+  items: T[],
+  now: string,
+): T[] {
+  return items.map((item) => ({
+    ...item,
+    lat: clamp(item.lat + randomStep(), LAT_MIN, LAT_MAX),
+    lng: clamp(item.lng + randomStep(), LNG_MIN, LNG_MAX),
+    updatedAt: now,
+  }));
+}
+
 export const useWorkLocationStore = create<WorkLocationStore>((set, get) => ({
   siteName: MOCK_WORK_SITE.siteName,
   workers: createInitialWorkers(),
+  equipment: createInitialEquipment(),
 
   getWorker: (id) => get().workers.find((w) => w.id === id),
+  getEquipment: (id) => get().equipment.find((e) => e.id === id),
 }));
 
 let simulationTimer: ReturnType<typeof setInterval> | null = null;
@@ -60,12 +97,8 @@ let simulationTimer: ReturnType<typeof setInterval> | null = null;
 function tickWorkLocations() {
   const now = new Date().toISOString();
   useWorkLocationStore.setState((state) => ({
-    workers: state.workers.map((w) => ({
-      ...w,
-      lat: clamp(w.lat + randomStep(), LAT_MIN, LAT_MAX),
-      lng: clamp(w.lng + randomStep(), LNG_MIN, LNG_MAX),
-      updatedAt: now,
-    })),
+    workers: moveWithinSite(state.workers, now),
+    equipment: moveWithinSite(state.equipment, now),
   }));
 }
 

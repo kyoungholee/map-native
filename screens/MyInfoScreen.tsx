@@ -1,8 +1,17 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProfileInfoRow } from '../components/ProfileInfoRow';
 import { MOCK_ADMIN } from '../data/mockWorkers';
+import { PRIVACY_POLICY_URL } from '../lib/appConfig';
 import { useAdminWorkLocation } from '../store/workLocationStore';
 
 function formatCoord(value: number) {
@@ -71,8 +80,24 @@ export function MyInfoScreen() {
         <ProfileInfoRow label="입사일" value={user.hiredAt} />
       </View>
 
+      <Pressable
+        style={styles.privacyBtn}
+        onPress={() => {
+          if (!PRIVACY_POLICY_URL) {
+            Alert.alert(
+              '개인정보처리방침',
+              'docs/privacy-policy.html 을 웹 서버에 올린 뒤\nEXPO_PUBLIC_PRIVACY_POLICY_URL 을 .env에 설정해 주세요.',
+            );
+            return;
+          }
+          Linking.openURL(PRIVACY_POLICY_URL);
+        }}
+      >
+        <Text style={styles.privacyBtnText}>개인정보처리방침</Text>
+      </Pressable>
+
       <Text style={styles.notice}>
-        실제 GPS·로그인 연동은 추후 개발 예정입니다.
+        베타 버전 · GPS는 시뮬레이션 · 로그인/API는 추후 연동
       </Text>
     </ScrollView>
   );
@@ -148,11 +173,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingBottom: 4,
   },
+  privacyBtn: {
+    alignSelf: 'center',
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  privacyBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563eb',
+    textDecorationLine: 'underline',
+  },
   notice: {
     fontSize: 12,
     color: '#9ca3af',
     textAlign: 'center',
     lineHeight: 18,
-    marginTop: 8,
+    marginTop: 4,
   },
 });

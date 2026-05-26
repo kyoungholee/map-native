@@ -1,23 +1,16 @@
 {
   "expo": {
-    "name": "Dooson ERP",
-    "slug": "dooson-erp-native",
+    "name": "건설현장 베타",
+    "slug": "dooson-map",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "홈 지도에서 현재 근무 위치를 표시하기 위해 위치 정보가 필요합니다."
-      }
+      "supportsTablet": true
     },
     "android": {
-      "package": "com.dooson.erp.native",
-      "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
-      ],
+      "package": "com.dooson.map.beta",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -29,15 +22,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-asset",
-      "expo-font",
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "홈 지도에서 현재 근무 위치를 표시하기 위해 위치 정보가 필요합니다."
-        }
-      ]
-    ]
+    "plugins": ["expo-asset", "expo-font"],
+    "extra": {
+      "eas": {
+        "projectId": "96b91da9-6308-4eba-b8df-94e8fdaf4736"
+      }
+    }
   }
 }

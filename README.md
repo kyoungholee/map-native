@@ -13,6 +13,17 @@
 
 ---
 
+## Google Play 출시 준비
+
+스토어 업로드 **직전까지** 단계별로 진행하려면 → **[docs/STORE_RELEASE.md](./docs/STORE_RELEASE.md)** 체크리스트를 따릅니다.
+
+```bash
+npm run build:preview      # 내부 테스트 APK
+npm run build:production   # Play 업로드용 AAB
+```
+
+---
+
 ## 주요 기능
 
 ### 하단 탭 (4개)

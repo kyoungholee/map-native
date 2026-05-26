@@ -1,4 +1,6 @@
-import { Platform } from 'react-native';
+import { getNaverMapWebViewBaseUrl } from './appConfig';
+
+export { getNaverMapWebViewBaseUrl };
 
 export type MapPathPoint = { lat: number; lng: number };
 
@@ -189,13 +191,3 @@ export function buildNaverMapHtml(
 </html>`;
 }
 
-/**
- * WebView baseUrl — 네이버가 Referer로 인증합니다.
- * Android 에뮬레이터/Expo는 Metro를 127.0.0.1:8081 로 열어 localhost 와 다를 수 있습니다.
- */
-export function getNaverMapWebViewBaseUrl(): string {
-  if (Platform.OS === 'android') {
-    return 'http://127.0.0.1:8081';
-  }
-  return 'http://localhost:8081';
-}

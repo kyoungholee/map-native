@@ -23,6 +23,12 @@ export type MapUserMarker = {
   role?: string;
   color?: string;
   kind?: MapMarkerKind;
+  updatedAt?: string;
+};
+
+export type MapMarkerPressPayload = {
+  type: 'markerPress';
+  id: string;
 };
 
 type MapOptions = {
@@ -181,8 +187,27 @@ export function buildNaverMapHtml(
 
       window.__userMarkers = {};
 
+      function postMarkerPress(id) {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'markerPress', id: id }));
+        }
+      }
+
+      function attachMarkerClick(marker, id) {
+        naver.maps.Event.addListener(marker, 'click', function () {
+          postMarkerPress(id);
+        });
+      }
+
       window.updateUserMarkers = function (markers) {
         if (!window.__naverMap || !markers) return;
+        var activeIds = markers.map(function (m) { return m.id; });
+        Object.keys(window.__userMarkers).forEach(function (id) {
+          if (activeIds.indexOf(id) === -1) {
+            window.__userMarkers[id].setMap(null);
+            delete window.__userMarkers[id];
+          }
+        });
         markers.forEach(function (m) {
           if (!m.lat || !m.lng) return;
           var pos = new naver.maps.LatLng(m.lat, m.lng);
@@ -190,7 +215,7 @@ export function buildNaverMapHtml(
             window.__userMarkers[m.id].setPosition(pos);
           } else {
             var zIndex = m.kind === 'person' ? 2000 : 2100;
-            window.__userMarkers[m.id] = new naver.maps.Marker({
+            var marker = new naver.maps.Marker({
               map: window.__naverMap,
               position: pos,
               zIndex: zIndex,
@@ -202,6 +227,8 @@ export function buildNaverMapHtml(
                 ),
               },
             });
+            attachMarkerClick(marker, m.id);
+            window.__userMarkers[m.id] = marker;
           }
         });
       };

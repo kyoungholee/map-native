@@ -20,6 +20,7 @@ const SIM_INTERVAL_MS = 10_000;
 
 export type WorkerLocation = {
   id: string;
+  siteId: string;
   lat: number;
   lng: number;
   name: string;
@@ -30,6 +31,7 @@ export type WorkerLocation = {
 
 export type EquipmentLocation = {
   id: string;
+  siteId: string;
   kind: EquipmentKind;
   lat: number;
   lng: number;
@@ -59,6 +61,7 @@ function createInitialWorkers(): WorkerLocation[] {
   const now = new Date().toISOString();
   return INITIAL_WORKER_LOCATIONS.map((w) => ({
     ...w,
+    siteId: MOCK_WORK_SITE.siteId,
     updatedAt: now,
   }));
 }
@@ -67,6 +70,7 @@ function createInitialEquipment(): EquipmentLocation[] {
   const now = new Date().toISOString();
   return INITIAL_EQUIPMENT_LOCATIONS.map((e) => ({
     ...e,
+    siteId: MOCK_WORK_SITE.siteId,
     updatedAt: now,
   }));
 }

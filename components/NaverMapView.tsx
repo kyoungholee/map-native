@@ -18,6 +18,7 @@ type Props = {
   center?: { lat: number; lng: number };
   zoom?: number;
   mapKey?: string;
+  onMarkerPress?: (markerId: string) => void;
 };
 
 export function NaverMapView({
@@ -27,7 +28,10 @@ export function NaverMapView({
   center,
   zoom,
   mapKey,
+  onMarkerPress,
 }: Props) {
+  const onMarkerPressRef = useRef(onMarkerPress);
+  onMarkerPressRef.current = onMarkerPress;
   const webRef = useRef<WebView>(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -52,7 +56,7 @@ export function NaverMapView({
   }, [mapKey]);
 
   useEffect(() => {
-    if (!mapReady || userMarkers.length === 0) return;
+    if (!mapReady) return;
 
     const payload = JSON.stringify(userMarkers);
     webRef.current?.injectJavaScript(`
@@ -95,11 +99,11 @@ export function NaverMapView({
         try {
           const data = JSON.parse(event.nativeEvent.data);
           if (data.type === 'ready') setMapReady(true);
+          if (data.type === 'markerPress' && typeof data.id === 'string') {
+            onMarkerPressRef.current?.(data.id);
+          }
         } catch {
           /* ignore */
-        }
-        if (__DEV__) {
-          console.warn('[NaverMap WebView]', event.nativeEvent.data);
         }
       }}
     />

@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
   FlatList,
+  ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -14,12 +16,24 @@ import { SiteDetailModal } from '../components/sites/SiteDetailModal';
 import { SiteFormModal } from '../components/sites/SiteFormModal';
 import { useSiteStore } from '../store/siteStore';
 import type { ConstructionSite, SiteFormInput } from '../types/site';
+import { isSupabaseConfigured } from '../lib/supabaseClient';
+import {
+  useConstructionSitesQuery,
+  useCreateConstructionSiteMutation,
+  useUpdateConstructionSiteMutation,
+} from '../hooks/useConstructionSites';
 
 export function SiteListScreen() {
   const insets = useSafeAreaInsets();
-  const sites = useSiteStore((s) => s.sites);
-  const addSite = useSiteStore((s) => s.addSite);
-  const updateSite = useSiteStore((s) => s.updateSite);
+  const localSites = useSiteStore((s) => s.sites);
+  const addSiteLocal = useSiteStore((s) => s.addSite);
+  const updateSiteLocal = useSiteStore((s) => s.updateSite);
+
+  const sitesQuery = useConstructionSitesQuery();
+  const createMutation = useCreateConstructionSiteMutation();
+  const updateMutation = useUpdateConstructionSiteMutation();
+
+  const sites = isSupabaseConfigured ? (sitesQuery.data ?? []) : localSites;
 
   const [formVisible, setFormVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -43,10 +57,27 @@ export function SiteListScreen() {
   };
 
   const handleSave = (input: SiteFormInput) => {
-    if (editingSite) {
-      updateSite(editingSite.id, input);
+    if (isSupabaseConfigured) {
+      if (editingSite) {
+        updateMutation.mutate(
+          { id: editingSite.id, input },
+          {
+            onError: (e) => {
+              Alert.alert('저장 실패', e instanceof Error ? e.message : '알 수 없는 오류');
+            },
+          },
+        );
+      } else {
+        createMutation.mutate(input, {
+          onError: (e) => {
+            Alert.alert('저장 실패', e instanceof Error ? e.message : '알 수 없는 오류');
+          },
+        });
+      }
+    } else if (editingSite) {
+      updateSiteLocal(editingSite.id, input);
     } else {
-      addSite(input);
+      addSiteLocal(input);
     }
     setEditingSite(null);
   };
@@ -63,6 +94,13 @@ export function SiteListScreen() {
           <Text style={styles.addBtnText}>등록</Text>
         </Pressable>
       </View>
+
+      {isSupabaseConfigured && sitesQuery.isLoading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.loadingText}>현장을 불러오는 중…</Text>
+        </View>
+      ) : null}
 
       <FlatList
         data={sites}
@@ -123,6 +161,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginTop: 4,
+  },
+  loadingWrap: {
+    position: 'absolute',
+    top: 110,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '500',
   },
   addBtn: {
     flexDirection: 'row',

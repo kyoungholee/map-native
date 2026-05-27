@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,10 +19,11 @@ import { sitesToMapOverlays } from '../lib/siteMapOverlays';
 import { useSiteStore } from '../store/siteStore';
 import {
   useWorkLocationStore,
-  type EquipmentLocation,
-  type WorkerLocation,
 } from '../store/workLocationStore';
 import type { ConstructionSite } from '../types/site';
+import { isSupabaseConfigured } from '../lib/supabaseClient';
+import { useConstructionSitesQuery } from '../hooks/useConstructionSites';
+import { useTrackablesQuery, useUpdateTrackableLocationMutation } from '../hooks/useTrackables';
 
 function formatUpdatedAt(iso: string) {
   const d = new Date(iso);
@@ -46,9 +49,34 @@ type TrackableDetail = {
   color: string;
   updatedAt: string;
   kind: MapMarkerKind;
+  lat: number;
+  lng: number;
 };
 
-function workerToDetail(w: WorkerLocation): TrackableDetail {
+type Worker = {
+  id: string;
+  siteId: string;
+  name: string;
+  role: string;
+  color: string;
+  updatedAt: string;
+  lat: number;
+  lng: number;
+};
+
+type Equipment = {
+  id: string;
+  siteId: string;
+  kind: MapMarkerKind;
+  name: string;
+  label: string;
+  color: string;
+  updatedAt: string;
+  lat: number;
+  lng: number;
+};
+
+function workerToDetail(w: Worker): TrackableDetail {
   return {
     id: w.id,
     name: w.name,
@@ -56,10 +84,12 @@ function workerToDetail(w: WorkerLocation): TrackableDetail {
     color: w.color,
     updatedAt: w.updatedAt,
     kind: 'person',
+    lat: w.lat,
+    lng: w.lng,
   };
 }
 
-function equipmentToDetail(e: EquipmentLocation): TrackableDetail {
+function equipmentToDetail(e: Equipment): TrackableDetail {
   return {
     id: e.id,
     name: e.name,
@@ -67,40 +97,102 @@ function equipmentToDetail(e: EquipmentLocation): TrackableDetail {
     color: e.color,
     updatedAt: e.updatedAt,
     kind: e.kind,
+    lat: e.lat,
+    lng: e.lng,
   };
 }
 
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const sites = useSiteStore((s) => s.sites);
-  const workers = useWorkLocationStore((s) => s.workers);
-  const equipment = useWorkLocationStore((s) => s.equipment);
+  const localSites = useSiteStore((s) => s.sites);
+  const localWorkers = useWorkLocationStore((s) => s.workers);
+  const localEquipment = useWorkLocationStore((s) => s.equipment);
 
-  const [selectedSiteId, setSelectedSiteId] = useState(MOCK_WORK_SITE.siteId);
+  const sitesQuery = useConstructionSitesQuery();
+  const trackablesQuery = useTrackablesQuery();
+  const updateTrackableLocationMutation = useUpdateTrackableLocationMutation();
+
+  const sites = isSupabaseConfigured ? (sitesQuery.data ?? []) : localSites;
+  const trackables = trackablesQuery.data ?? [];
+
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(
+    isSupabaseConfigured ? null : MOCK_WORK_SITE.siteId,
+  );
   const [sitePickerOpen, setSitePickerOpen] = useState(false);
   const [legendExpanded, setLegendExpanded] = useState(false);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
 
+  const [gpsEditVisible, setGpsEditVisible] = useState(false);
+  const [gpsEditMarkerId, setGpsEditMarkerId] = useState<string | null>(null);
+  const [gpsLatText, setGpsLatText] = useState('');
+  const [gpsLngText, setGpsLngText] = useState('');
+
   useEffect(() => {
     if (sites.length === 0) return;
-    if (!sites.some((s) => s.id === selectedSiteId)) {
+    if (!selectedSiteId || !sites.some((s) => s.id === selectedSiteId)) {
       setSelectedSiteId(sites[0].id);
     }
   }, [sites, selectedSiteId]);
 
   const selectedSite = useMemo(
-    () => sites.find((s) => s.id === selectedSiteId) ?? sites[0],
+    () => (selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : undefined) ?? sites[0],
     [sites, selectedSiteId],
   );
 
-  const siteWorkers = useMemo(
-    () => workers.filter((w) => w.siteId === selectedSite?.id),
-    [workers, selectedSite?.id],
+  const siteWorkers = useMemo<Worker[]>(
+    () => {
+      if (!selectedSite?.id) return [];
+      if (!isSupabaseConfigured) {
+        return localWorkers.filter((w) => w.siteId === selectedSite.id);
+      }
+
+      const DEFAULT_PERSON_COLOR = '#16a34a';
+      return trackables
+        .filter((t) => t.siteId === selectedSite.id && t.kind === 'person')
+        .map<Worker>((t) => ({
+          id: t.id,
+          siteId: t.siteId,
+          lat: t.lat,
+          lng: t.lng,
+          name: t.name,
+          role: t.role ?? '',
+          color: t.color ?? DEFAULT_PERSON_COLOR,
+          updatedAt: t.updatedAt,
+        }));
+    },
+    [selectedSite?.id, localWorkers, trackables],
   );
 
-  const siteEquipment = useMemo(
-    () => equipment.filter((e) => e.siteId === selectedSite?.id),
-    [equipment, selectedSite?.id],
+  const siteEquipment = useMemo<Equipment[]>(
+    () => {
+      if (!selectedSite?.id) return [];
+      if (!isSupabaseConfigured) {
+        return localEquipment.filter((e) => e.siteId === selectedSite.id);
+      }
+
+      const DEFAULT_DUMP_COLOR = '#d97706';
+      const DEFAULT_FORK_COLOR = '#eab308';
+
+      return trackables
+        .filter(
+          (t) =>
+            t.siteId === selectedSite.id &&
+            (t.kind === 'dump_truck' || t.kind === 'forklift'),
+        )
+        .map<Equipment>((t) => ({
+          id: t.id,
+          siteId: t.siteId,
+          kind: t.kind,
+          lat: t.lat,
+          lng: t.lng,
+          name: t.name,
+          label: t.label ?? '',
+          color:
+            t.kind === 'dump_truck' ? t.color ?? DEFAULT_DUMP_COLOR : t.color ?? DEFAULT_FORK_COLOR,
+          updatedAt: t.updatedAt,
+        }));
+    },
+    [selectedSite?.id, localEquipment, trackables],
   );
 
   const overlays = useMemo(
@@ -158,6 +250,44 @@ export function HomeScreen() {
     setLegendExpanded(false);
   }, []);
 
+  const closeGpsEdit = () => {
+    setGpsEditVisible(false);
+    setGpsEditMarkerId(null);
+    setGpsLatText('');
+    setGpsLngText('');
+  };
+
+  const openGpsEdit = useCallback((detail: TrackableDetail) => {
+    setGpsEditVisible(true);
+    setGpsEditMarkerId(detail.id);
+    setGpsLatText(String(detail.lat));
+    setGpsLngText(String(detail.lng));
+  }, []);
+
+  const handleGpsSave = () => {
+    if (!gpsEditMarkerId) return;
+    const lat = parseFloat(gpsLatText);
+    const lng = parseFloat(gpsLngText);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      Alert.alert('입력 확인', '위도/경도를 숫자로 입력해 주세요.');
+      return;
+    }
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      Alert.alert('입력 범위', '위도(-90~90), 경도(-180~180) 범위를 확인해 주세요.');
+      return;
+    }
+
+    updateTrackableLocationMutation.mutate(
+      { id: gpsEditMarkerId, lat, lng },
+      {
+        onError: (e) => {
+          Alert.alert('저장 실패', e instanceof Error ? e.message : '알 수 없는 오류');
+        },
+        onSuccess: () => closeGpsEdit(),
+      },
+    );
+  };
+
   const totalCount = siteWorkers.length + siteEquipment.length;
 
   return (
@@ -212,6 +342,16 @@ export function HomeScreen() {
           <Text style={styles.markerDetailUpdated}>
             마지막 갱신 · {formatUpdatedAt(selectedDetail.updatedAt)}
           </Text>
+          {isSupabaseConfigured ? (
+            <Pressable
+              onPress={() => openGpsEdit(selectedDetail)}
+              style={styles.gpsEditLink}
+              accessibilityRole="button"
+              accessibilityLabel="GPS 수정"
+            >
+              <Text style={styles.gpsEditLinkText}>GPS 수정</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -319,8 +459,18 @@ export function HomeScreen() {
             <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
               {sites.map((site) => {
                 const isSelected = site.id === selectedSiteId;
-                const workerCount = workers.filter((w) => w.siteId === site.id).length;
-                const equipCount = equipment.filter((e) => e.siteId === site.id).length;
+                const workerCount = isSupabaseConfigured
+                  ? trackables.filter(
+                      (t) => t.siteId === site.id && t.kind === 'person',
+                    ).length
+                  : localWorkers.filter((w) => w.siteId === site.id).length;
+                const equipCount = isSupabaseConfigured
+                  ? trackables.filter(
+                      (t) =>
+                        t.siteId === site.id &&
+                        (t.kind === 'dump_truck' || t.kind === 'forklift'),
+                    ).length
+                  : localEquipment.filter((e) => e.siteId === site.id).length;
                 return (
                   <Pressable
                     key={site.id}
@@ -348,6 +498,51 @@ export function HomeScreen() {
                   </Pressable>
                 );
               })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={gpsEditVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeGpsEdit}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={closeGpsEdit}>
+          <Pressable
+            style={[styles.modalSheet, { marginTop: insets.top + 56 }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={styles.modalTitle}>GPS 수정</Text>
+
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <View style={styles.gpsFields}>
+                <Text style={styles.gpsLabel}>위도 (lat)</Text>
+                <TextInput
+                  style={styles.gpsInput}
+                  value={gpsLatText}
+                  onChangeText={setGpsLatText}
+                  keyboardType="decimal-pad"
+                />
+
+                <Text style={styles.gpsLabel}>경도 (lng)</Text>
+                <TextInput
+                  style={styles.gpsInput}
+                  value={gpsLngText}
+                  onChangeText={setGpsLngText}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+
+              <View style={styles.gpsActions}>
+                <Pressable style={styles.gpsCancelBtn} onPress={closeGpsEdit}>
+                  <Text style={styles.gpsCancelText}>취소</Text>
+                </Pressable>
+                <Pressable style={styles.gpsSaveBtn} onPress={handleGpsSave}>
+                  <Text style={styles.gpsSaveText}>저장</Text>
+                </Pressable>
+              </View>
             </ScrollView>
           </Pressable>
         </Pressable>
@@ -593,5 +788,68 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 4,
     lineHeight: 17,
+  },
+  gpsEditLink: {
+    marginTop: 10,
+    alignSelf: 'flex-end',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+  },
+  gpsEditLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2563eb',
+  },
+  gpsFields: {
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+    gap: 10,
+  },
+  gpsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6b7280',
+    marginTop: 6,
+  },
+  gpsInput: {
+    marginTop: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#d1d5db',
+    backgroundColor: '#f9fafb',
+    fontSize: 14,
+  },
+  gpsActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  gpsCancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
+  },
+  gpsCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  gpsSaveBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+  },
+  gpsSaveText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
   },
 });

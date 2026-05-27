@@ -13,9 +13,16 @@
 
 ---
 
-## Google Play 출시 준비
+## QA · 출시 체크리스트
 
-스토어 업로드 **직전까지** 단계별로 진행하려면 → **[docs/STORE_RELEASE.md](./docs/STORE_RELEASE.md)** 체크리스트를 따릅니다.
+| 문서 | 내용 |
+|------|------|
+| [docs/QA_RELEASE_CHECKLIST.md](./docs/QA_RELEASE_CHECKLIST.md) | **전체** — sync·실기기·EAS·Play 내부 테스트 |
+| [docs/STORE_RELEASE.md](./docs/STORE_RELEASE.md) | Google Play 단계별 |
+| [docs/EAS_ENV.md](./docs/EAS_ENV.md) | EAS 환경 변수 분리 |
+| [docs/DEVICE_AND_PERMISSIONS.md](./docs/DEVICE_AND_PERMISSIONS.md) | 실기기·권한 흐름 |
+
+스토어 업로드 **직전까지** 단계별로 진행하려면 위 체크리스트를 따릅니다.
 
 ```bash
 npm run build:preview      # 내부 테스트 APK
@@ -61,7 +68,9 @@ npm run build:production   # Play 업로드용 AAB
 - **Expo SDK 54** / React Native 0.81 / React 19
 - **TypeScript**
 - **React Navigation** (Bottom Tabs)
-- **Zustand** — 현장 목록, 근무자 GPS 시뮬레이션
+- **Zustand** — Supabase 미설정 시 로컬 fallback
+- **TanStack React Query** — sync (로딩·에러·재시도)
+- **Supabase** — 현장·GPS DB
 - **react-native-webview** — 네이버 지도
 - **react-native-qrcode-svg** — 출근 QR
 
@@ -91,7 +100,11 @@ npm install
 
 ```env
 EXPO_PUBLIC_NAVER_MAP_CLIENT_ID=발급받은_Client_ID
+EXPO_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 ```
+
+> 변수명은 반드시 **`EXPO_PUBLIC_`** 접두사. (`NEXT_PUBLIC_` 는 Expo 번들에 포함되지 않음)
 
 > `.env`, `.env.example`은 Git에 올리지 않습니다 (`.gitignore` 참고).
 
@@ -199,7 +212,11 @@ native/
 | `npm run android`  | Android에서 앱 열기                 |
 | `npm run ios`      | iOS 시뮬레이터                      |
 | `npm run emulator` | 에뮬레이터 부팅 + Expo Go + 앱 실행 |
-| `npx tsc --noEmit` | 타입 검사                           |
+| `npm run device` | **실기기** USB + Expo Go |
+| `npm run build:preview` | EAS APK (내부 테스트) |
+| `npm run build:production` | EAS AAB (Play) |
+| `npm run submit:internal` | Play 내부 테스트 트랙 제출 |
+| `npm run typecheck` | 타입 검사 |
 
 ---
 

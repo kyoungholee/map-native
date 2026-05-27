@@ -3,6 +3,8 @@
 Play Console **프로덕션 공개 직전**까지 단계별로 진행합니다.  
 완료한 항목은 `[x]`로 표시해 나갑니다.
 
+> 전체 QA 항목(동기화 UI, 실기기, EAS env): **[QA_RELEASE_CHECKLIST.md](./QA_RELEASE_CHECKLIST.md)**
+
 > **iOS App Store**는 별도 과정(Apple Developer $99/년, Xcode/EAS iOS 빌드)입니다. 이 문서는 **Google Play** 기준입니다.
 
 ---

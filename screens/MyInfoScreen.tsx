@@ -113,11 +113,7 @@ export function MyInfoScreen() {
           }
           Linking.openURL(PRIVACY_POLICY_URL);
         }}
-      >
-        <Text style={styles.privacyBtnText}>개인정보처리방침</Text>
-      </Pressable>
-
-      <Text style={styles.notice}> · GPS는 시뮬레이션</Text>
+      ></Pressable>
     </ScrollView>
   );
 }

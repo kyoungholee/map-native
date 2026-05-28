@@ -79,4 +79,29 @@ $$;
 
 grant execute on function public.simulate_trackables_tick(uuid) to anon, authenticated;
 
+-- ─── 로그인 프로필 (auth.users 와 1:1) ───
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  login_id text not null unique,
+  employee_id text not null,
+  name text not null,
+  role_label text not null,
+  position text not null,
+  department text not null,
+  site_id text not null,
+  site_name text not null,
+  site_address text not null,
+  phone text not null,
+  email text not null,
+  hired_at text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "profiles_select_own" on public.profiles;
+create policy "profiles_select_own"
+  on public.profiles for select to authenticated
+  using (auth.uid() = id);
+
 notify pgrst, 'reload schema';

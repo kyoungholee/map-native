@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { AuthBootstrap } from "./components/AuthBootstrap";
 import { SupabaseBootstrap } from "./components/SupabaseBootstrap";
-import { MainTabs } from "./navigation/MainTabs";
+import { RootNavigator } from "./navigation/RootNavigator";
 import { isSupabaseConfigured } from "./lib/supabaseClient";
 import {
   startWorkLocationSimulation,
@@ -25,10 +26,11 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AuthBootstrap />
       <SupabaseBootstrap />
       <SafeAreaProvider>
         <NavigationContainer>
-          <MainTabs />
+          <RootNavigator />
           <StatusBar style="dark" />
         </NavigationContainer>
       </SafeAreaProvider>

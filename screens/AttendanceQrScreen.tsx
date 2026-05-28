@@ -2,15 +2,17 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MOCK_ADMIN } from '../data/mockWorkers';
 import { buildAttendanceQrValue } from '../lib/attendanceQr';
+import { useAuthStore } from '../store/authStore';
 
 const QR_SIZE = 220;
 
 export function AttendanceQrScreen() {
   const insets = useSafeAreaInsets();
-  const user = MOCK_ADMIN;
-  const qrValue = buildAttendanceQrValue(user);
+  const user = useAuthStore((s) => s.profile);
+  const qrValue = user ? buildAttendanceQrValue(user) : '';
+
+  if (!user) return null;
 
   return (
     <ScrollView

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ConstructionSite, SiteFormInput } from '../types/site';
 import type { MapMarkerKind } from './naverMapHtml';
 import type { MapUserMarker } from './naverMapHtml';
+import { AUTH_ACCOUNTS_SITE_NAME } from '../data/authProfiles';
 import { isSupabaseConfigured, supabaseClient } from './supabaseClient';
 
 type ConstructionSiteRow = {
@@ -113,7 +114,9 @@ export async function listConstructionSites(): Promise<ConstructionSite[]> {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return (data as ConstructionSiteRow[]).map(mapSiteRow);
+  return (data as ConstructionSiteRow[])
+    .map(mapSiteRow)
+    .filter((site) => site.name !== AUTH_ACCOUNTS_SITE_NAME);
 }
 
 export async function createConstructionSite(input: SiteFormInput): Promise<ConstructionSite> {
@@ -161,13 +164,18 @@ export async function updateConstructionSite(id: string, input: SiteFormInput): 
 export async function listTrackablesAll(): Promise<Trackable[]> {
   const supabase = assertSupabaseConfigured();
 
-  const { data, error } = await supabase
-    .from('trackables')
-    .select('*')
-    .order('updated_at', { ascending: false });
+  const [{ data, error }, { data: authSites, error: authSiteError }] = await Promise.all([
+    supabase.from('trackables').select('*').order('updated_at', { ascending: false }),
+    supabase.from('construction_sites').select('id').eq('name', AUTH_ACCOUNTS_SITE_NAME),
+  ]);
 
   if (error) throw error;
-  return (data as TrackableRow[]).map(mapTrackableRow);
+  if (authSiteError) throw authSiteError;
+
+  const authSiteIds = new Set((authSites ?? []).map((s) => s.id));
+  return (data as TrackableRow[])
+    .map(mapTrackableRow)
+    .filter((t) => !authSiteIds.has(t.siteId));
 }
 
 export function mapTrackablesToUserMarkers(trackables: Trackable[]): MapUserMarker[] {

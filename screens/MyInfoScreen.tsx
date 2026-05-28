@@ -6,13 +6,13 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ProfileInfoRow } from '../components/ProfileInfoRow';
-import { MOCK_ADMIN } from '../data/mockWorkers';
-import { PRIVACY_POLICY_URL } from '../lib/appConfig';
-import { useAdminWorkLocation } from '../store/workLocationStore';
+import { ProfileInfoRow } from "../components/ProfileInfoRow";
+import { PRIVACY_POLICY_URL } from "../lib/appConfig";
+import { useAuthStore } from "../store/authStore";
+import { useAdminWorkLocation } from "../store/workLocationStore";
 
 function formatCoord(value: number) {
   return value.toFixed(8);
@@ -20,18 +20,21 @@ function formatCoord(value: number) {
 
 function formatUpdatedAt(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleString('ko-KR', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return d.toLocaleString("ko-KR", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 export function MyInfoScreen() {
   const insets = useSafeAreaInsets();
-  const user = MOCK_ADMIN;
+  const user = useAuthStore((s) => s.profile);
+  const signOut = useAuthStore((s) => s.signOut);
   const { lat, lng, updatedAt, siteName } = useAdminWorkLocation();
+
+  if (!user) return null;
 
   return (
     <ScrollView
@@ -81,12 +84,30 @@ export function MyInfoScreen() {
       </View>
 
       <Pressable
+        style={styles.logoutBtn}
+        onPress={() => {
+          Alert.alert("로그아웃", "로그아웃 하시겠습니까?", [
+            { text: "취소", style: "cancel" },
+            {
+              text: "로그아웃",
+              style: "destructive",
+              onPress: () => {
+                void signOut();
+              },
+            },
+          ]);
+        }}
+      >
+        <Text style={styles.logoutBtnText}>로그아웃</Text>
+      </Pressable>
+
+      <Pressable
         style={styles.privacyBtn}
         onPress={() => {
           if (!PRIVACY_POLICY_URL) {
             Alert.alert(
-              '개인정보처리방침',
-              'docs/privacy-policy.html 을 웹 서버에 올린 뒤\nEXPO_PUBLIC_PRIVACY_POLICY_URL 을 .env에 설정해 주세요.',
+              "개인정보처리방침",
+              "docs/privacy-policy.html 을 웹 서버에 올린 뒤\nEXPO_PUBLIC_PRIVACY_POLICY_URL 을 .env에 설정해 주세요.",
             );
             return;
           }
@@ -96,9 +117,7 @@ export function MyInfoScreen() {
         <Text style={styles.privacyBtnText}>개인정보처리방침</Text>
       </Pressable>
 
-      <Text style={styles.notice}>
-        베타 버전 · GPS는 시뮬레이션 · 로그인/API는 추후 연동
-      </Text>
+      <Text style={styles.notice}> · GPS는 시뮬레이션</Text>
     </ScrollView>
   );
 }
@@ -106,38 +125,38 @@ export function MyInfoScreen() {
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: "#f9fafb",
   },
   content: {
     paddingHorizontal: 20,
     paddingBottom: 32,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 24,
   },
   avatar: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#1a1a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#1a1a1a",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 12,
   },
   avatarText: {
     fontSize: 28,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
   name: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontWeight: "700",
+    color: "#1a1a1a",
   },
   loginId: {
     fontSize: 14,
-    color: '#6b7280',
+    color: "#6b7280",
     marginTop: 4,
   },
   badge: {
@@ -145,50 +164,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: "#e5e7eb",
   },
   badgeText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: "600",
+    color: "#374151",
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontWeight: "700",
+    color: "#1a1a1a",
     paddingTop: 16,
     paddingBottom: 4,
   },
   gpsHint: {
     fontSize: 13,
-    color: '#6b7280',
+    color: "#6b7280",
     lineHeight: 18,
     marginBottom: 8,
     paddingBottom: 4,
   },
+  logoutBtn: {
+    marginTop: 8,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  logoutBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#dc2626",
+  },
   privacyBtn: {
-    alignSelf: 'center',
+    alignSelf: "center",
     marginTop: 8,
     paddingVertical: 12,
     paddingHorizontal: 20,
   },
   privacyBtnText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#2563eb',
-    textDecorationLine: 'underline',
+    fontWeight: "600",
+    color: "#2563eb",
+    textDecorationLine: "underline",
   },
   notice: {
     fontSize: 12,
-    color: '#9ca3af',
-    textAlign: 'center',
+    color: "#9ca3af",
+    textAlign: "center",
     lineHeight: 18,
     marginTop: 4,
   },

@@ -23,7 +23,16 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-asset", "expo-font"],
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "출근 QR 스캔을 위해 카메라 접근이 필요합니다."
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "96b91da9-6308-4eba-b8df-94e8fdaf4736"

@@ -7,13 +7,9 @@ import {
   type EquipmentKind,
 } from '../data/mockWorkLocation';
 import { SEED_SITES } from '../data/seedSites';
+import { clampLatLngToBoundary } from '../lib/siteBoundary';
 
 const SITE_BOUNDARY = SEED_SITES[0].boundary;
-
-const LAT_MIN = Math.min(SITE_BOUNDARY.southLat, SITE_BOUNDARY.northLat);
-const LAT_MAX = Math.max(SITE_BOUNDARY.southLat, SITE_BOUNDARY.northLat);
-const LNG_MIN = Math.min(SITE_BOUNDARY.westLng, SITE_BOUNDARY.eastLng);
-const LNG_MAX = Math.max(SITE_BOUNDARY.westLng, SITE_BOUNDARY.eastLng);
 
 const STEP = 0.00012;
 const SIM_INTERVAL_MS = 10_000;
@@ -49,10 +45,6 @@ type WorkLocationStore = {
   getEquipment: (id: string) => EquipmentLocation | undefined;
 };
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function randomStep() {
   return (Math.random() - 0.5) * 2 * STEP;
 }
@@ -79,12 +71,19 @@ function moveWithinSite<T extends { lat: number; lng: number; updatedAt: string 
   items: T[],
   now: string,
 ): T[] {
-  return items.map((item) => ({
-    ...item,
-    lat: clamp(item.lat + randomStep(), LAT_MIN, LAT_MAX),
-    lng: clamp(item.lng + randomStep(), LNG_MIN, LNG_MAX),
-    updatedAt: now,
-  }));
+  return items.map((item) => {
+    const next = clampLatLngToBoundary(
+      SITE_BOUNDARY,
+      item.lat + randomStep(),
+      item.lng + randomStep(),
+    );
+    return {
+      ...item,
+      lat: next.lat,
+      lng: next.lng,
+      updatedAt: now,
+    };
+  });
 }
 
 export const useWorkLocationStore = create<WorkLocationStore>((set, get) => ({

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NaverMapView } from '../components/NaverMapView';
 import { MOCK_WORK_SITE } from '../data/mockWorkLocation';
 import type { MapMarkerKind, MapUserMarker } from '../lib/naverMapHtml';
+import { clampLatLngToBoundary, isLatLngInsideBoundary } from '../lib/siteBoundary';
 import { sitesToMapOverlays } from '../lib/siteMapOverlays';
 import { useSiteStore } from '../store/siteStore';
 import {
@@ -143,7 +144,12 @@ export function HomeScreen() {
     () => {
       if (!selectedSite?.id) return [];
       if (!isSupabaseConfigured) {
-        return localWorkers.filter((w) => w.siteId === selectedSite.id);
+        return localWorkers
+          .filter((w) => w.siteId === selectedSite.id)
+          .map((w) => {
+            const next = clampLatLngToBoundary(selectedSite.boundary, w.lat, w.lng);
+            return { ...w, lat: next.lat, lng: next.lng };
+          });
       }
 
       const DEFAULT_PERSON_COLOR = '#16a34a';
@@ -167,7 +173,12 @@ export function HomeScreen() {
     () => {
       if (!selectedSite?.id) return [];
       if (!isSupabaseConfigured) {
-        return localEquipment.filter((e) => e.siteId === selectedSite.id);
+        return localEquipment
+          .filter((e) => e.siteId === selectedSite.id)
+          .map((e) => {
+            const next = clampLatLngToBoundary(selectedSite.boundary, e.lat, e.lng);
+            return { ...e, lat: next.lat, lng: next.lng };
+          });
       }
 
       const DEFAULT_DUMP_COLOR = '#d97706';
@@ -265,7 +276,7 @@ export function HomeScreen() {
   }, []);
 
   const handleGpsSave = () => {
-    if (!gpsEditMarkerId) return;
+    if (!gpsEditMarkerId || !selectedSite) return;
     const lat = parseFloat(gpsLatText);
     const lng = parseFloat(gpsLngText);
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
@@ -277,8 +288,17 @@ export function HomeScreen() {
       return;
     }
 
+    const boundary = selectedSite.boundary;
+    const clamped = clampLatLngToBoundary(boundary, lat, lng);
+    if (!isLatLngInsideBoundary(boundary, lat, lng)) {
+      Alert.alert(
+        '현장 경계',
+        '입력한 좌표가 현장 경계(파란 폴리곤) 밖입니다. 경계 안 좌표로 저장합니다.',
+      );
+    }
+
     updateTrackableLocationMutation.mutate(
-      { id: gpsEditMarkerId, lat, lng },
+      { id: gpsEditMarkerId, lat: clamped.lat, lng: clamped.lng },
       {
         onError: (e) => {
           Alert.alert('저장 실패', e instanceof Error ? e.message : '알 수 없는 오류');

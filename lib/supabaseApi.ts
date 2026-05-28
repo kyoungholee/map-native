@@ -4,6 +4,7 @@ import type { ConstructionSite, SiteFormInput } from '../types/site';
 import type { MapMarkerKind } from './naverMapHtml';
 import type { MapUserMarker } from './naverMapHtml';
 import { AUTH_ACCOUNTS_SITE_NAME } from '../data/authProfiles';
+import { clampLatLngToBoundary } from './siteBoundary';
 import { isSupabaseConfigured, supabaseClient } from './supabaseClient';
 
 type ConstructionSiteRow = {
@@ -52,10 +53,6 @@ function assertSupabaseConfigured(): SupabaseClient {
     throw new Error('Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.');
   }
   return supabaseClient;
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }
 
 function randomStep() {
@@ -164,18 +161,34 @@ export async function updateConstructionSite(id: string, input: SiteFormInput): 
 export async function listTrackablesAll(): Promise<Trackable[]> {
   const supabase = assertSupabaseConfigured();
 
-  const [{ data, error }, { data: authSites, error: authSiteError }] = await Promise.all([
+  const [
+    { data, error },
+    { data: authSites, error: authSiteError },
+    { data: siteRows, error: sitesError },
+  ] = await Promise.all([
     supabase.from('trackables').select('*').order('updated_at', { ascending: false }),
     supabase.from('construction_sites').select('id').eq('name', AUTH_ACCOUNTS_SITE_NAME),
+    supabase.from('construction_sites').select('id, boundary'),
   ]);
 
   if (error) throw error;
   if (authSiteError) throw authSiteError;
+  if (sitesError) throw sitesError;
 
   const authSiteIds = new Set((authSites ?? []).map((s) => s.id));
+  const boundaryBySiteId = new Map(
+    (siteRows ?? []).map((s) => [s.id as string, s.boundary as ConstructionSite['boundary']]),
+  );
+
   return (data as TrackableRow[])
     .map(mapTrackableRow)
-    .filter((t) => !authSiteIds.has(t.siteId));
+    .filter((t) => !authSiteIds.has(t.siteId))
+    .map((t) => {
+      const boundary = boundaryBySiteId.get(t.siteId);
+      if (!boundary) return t;
+      const clamped = clampLatLngToBoundary(boundary, t.lat, t.lng);
+      return { ...t, lat: clamped.lat, lng: clamped.lng };
+    });
 }
 
 export function mapTrackablesToUserMarkers(trackables: Trackable[]): MapUserMarker[] {
@@ -207,16 +220,8 @@ async function simulateTrackablesTickInApp(siteId?: string): Promise<void> {
       const site = siteById.get(t.siteId);
       if (!site) return null;
 
-      const b = site.boundary;
-      const latMin = Math.min(b.southLat, b.northLat);
-      const latMax = Math.max(b.southLat, b.northLat);
-      const lngMin = Math.min(b.westLng, b.eastLng);
-      const lngMax = Math.max(b.westLng, b.eastLng);
-
-      return updateTrackableLocation(t.id, {
-        lat: clamp(t.lat + randomStep(), latMin, latMax),
-        lng: clamp(t.lng + randomStep(), lngMin, lngMax),
-      });
+      const next = clampLatLngToBoundary(site.boundary, t.lat + randomStep(), t.lng + randomStep());
+      return updateTrackableLocation(t.id, next, site.boundary);
     })
     .filter(Boolean);
 
@@ -250,19 +255,72 @@ export async function simulateTrackablesTick(siteId?: string): Promise<'rpc' | '
 export async function updateTrackableLocation(
   id: string,
   input: { lat: number; lng: number },
+  boundaryHint?: ConstructionSite['boundary'],
 ): Promise<void> {
   const supabase = assertSupabaseConfigured();
+
+  let boundary = boundaryHint;
+  if (!boundary) {
+    const { data: trackable, error: trackableError } = await supabase
+      .from('trackables')
+      .select('site_id')
+      .eq('id', id)
+      .single();
+    if (trackableError) throw trackableError;
+
+    const { data: site, error: siteError } = await supabase
+      .from('construction_sites')
+      .select('boundary')
+      .eq('id', trackable.site_id)
+      .single();
+    if (siteError) throw siteError;
+    boundary = site.boundary as ConstructionSite['boundary'];
+  }
+
+  const clamped = clampLatLngToBoundary(boundary, input.lat, input.lng);
 
   const nowIso = new Date().toISOString();
   const { error } = await supabase
     .from('trackables')
     .update({
-      lat: input.lat,
-      lng: input.lng,
+      lat: clamped.lat,
+      lng: clamped.lng,
       updated_at: nowIso,
     })
     .eq('id', id);
 
   if (error) throw error;
+}
+
+/** DB에 경계 밖으로 저장된 trackables 좌표를 현장 경계 안으로 맞춥니다. */
+export async function reclampOutOfBoundaryTrackables(): Promise<number> {
+  const supabase = assertSupabaseConfigured();
+
+  const [{ data: rows, error }, { data: siteRows, error: sitesError }] = await Promise.all([
+    supabase.from('trackables').select('id, site_id, lat, lng'),
+    supabase.from('construction_sites').select('id, boundary, name'),
+  ]);
+  if (error) throw error;
+  if (sitesError) throw sitesError;
+
+  const boundaryBySiteId = new Map(
+    (siteRows ?? [])
+      .filter((s) => s.name !== AUTH_ACCOUNTS_SITE_NAME)
+      .map((s) => [s.id as string, s.boundary as ConstructionSite['boundary']]),
+  );
+
+  let fixed = 0;
+  for (const row of rows ?? []) {
+    const boundary = boundaryBySiteId.get(row.site_id as string);
+    if (!boundary) continue;
+
+    const clamped = clampLatLngToBoundary(boundary, row.lat as number, row.lng as number);
+    if (clamped.lat === row.lat && clamped.lng === row.lng) continue;
+
+    await updateTrackableLocation(row.id as string, clamped, boundary);
+    fixed += 1;
+  }
+
+  return fixed;
 }
 

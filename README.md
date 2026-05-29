@@ -204,9 +204,78 @@ native/
 | `npm run android` / `ios`  | 네이티브 실행                   |
 | `npm run typecheck`        | TypeScript 검사                 |
 | `npm run seed:auth-db`     | Supabase에 admin/test 계정 시드 |
-| `npm run build:preview`    | EAS APK (내부 테스트)           |
-| `npm run build:production` | EAS AAB (Play)                  |
-| `npm run submit:internal`  | Play 내부 테스트 제출           |
+| `npm run build:preview`           | EAS APK (Android 내부 테스트)   |
+| `npm run build:preview:ios`       | EAS IPA (iOS 내부 테스트)       |
+| `npm run build:preview:all`       | Android + iOS preview 빌드      |
+| `npm run build:production`        | EAS AAB (Play)                  |
+| `npm run build:production:ios`    | EAS IPA (App Store)             |
+| `npm run build:production:all`    | Android + iOS production 빌드   |
+| `npm run submit:internal`         | Play 내부 테스트 제출           |
+| `npm run submit:internal:ios`     | TestFlight 제출                 |
+
+---
+
+## iOS 빌드 · App Store 배포
+
+### 사전 준비
+
+1. [Apple Developer Program](https://developer.apple.com/programs/) 가입
+2. [App Store Connect](https://appstoreconnect.apple.com/)에서 앱 등록
+   - Bundle ID: `com.dooson.map.beta` (Android `package`와 동일)
+3. EAS 로그인: `npx eas login`
+4. preview/production 환경 변수 동기화:
+   ```bash
+   npm run env:pull:preview
+   # 또는
+   npm run env:pull:production
+   ```
+5. 스토어 빌드용 네이버 지도 Referer (HTTPS) — `EXPO_PUBLIC_NAVER_MAP_WEBVIEW_BASE_URL` 설정
+
+### 최초 iOS 빌드 (인증서 자동 생성)
+
+```bash
+npm run build:preview:ios
+```
+
+첫 빌드 시 EAS가 Distribution Certificate · Provisioning Profile을 생성·관리합니다.  
+팀 ID 등은 CLI 프롬프트에 따라 입력하면 됩니다.
+
+```bash
+# 인증서·프로비저닝 수동 확인/갱신
+npx eas credentials --platform ios
+```
+
+### TestFlight · App Store 제출
+
+```bash
+# production IPA 빌드
+npm run build:production:ios
+
+# App Store Connect / TestFlight 업로드
+npm run submit:internal:ios
+```
+
+첫 `submit` 시 Apple ID · App Store Connect API Key 중 하나를 선택합니다.  
+`ascAppId`(App Store Connect 앱 ID)는 제출 시 입력하거나, 이후 `eas.json`의 `submit.production.ios`에 추가할 수 있습니다.
+
+```json
+"ios": {
+  "appleId": "your-apple-id@example.com",
+  "ascAppId": "1234567890",
+  "appleTeamId": "ABCDE12345",
+  "language": "ko-KR"
+}
+```
+
+### iOS 개발 (Expo Go · 시뮬레이터)
+
+```bash
+npm start
+# iPhone Expo Go 앱에서 QR 스캔
+
+# 또는 Mac + Xcode 시뮬레이터
+npm run ios
+```
 
 ---
 

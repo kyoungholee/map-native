@@ -1,4 +1,4 @@
-import { getNaverMapWebViewBaseUrl } from './appConfig';
+import { getNaverMapWebViewBaseUrl } from "./appConfig";
 
 export { getNaverMapWebViewBaseUrl };
 
@@ -12,7 +12,7 @@ export type MapPolygonOverlay = {
   center?: MapPathPoint;
 };
 
-export type MapMarkerKind = 'person' | 'dump_truck' | 'forklift';
+export type MapMarkerKind = "person" | "dump_truck" | "forklift";
 
 /** GPS — 인력·장비 현재 위치 */
 export type MapUserMarker = {
@@ -27,7 +27,7 @@ export type MapUserMarker = {
 };
 
 export type MapMarkerPressPayload = {
-  type: 'markerPress';
+  type: "markerPress";
   id: string;
 };
 
@@ -43,15 +43,15 @@ export function buildNaverMapHtml(
   clientId: string,
   options: MapOptions = {},
 ): string {
-  const safeId = clientId.replace(/[^a-zA-Z0-9_-]/g, '');
-  const center = options.center ?? { lat: 37.5665, lng: 126.9780 };
+  const safeId = clientId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const center = options.center ?? { lat: 37.5665, lng: 126.978 };
   const zoom = options.zoom ?? 14;
   const overlaysJson = JSON.stringify(
     (options.overlays ?? []).map((o) => ({
       paths: o.paths,
-      strokeColor: o.strokeColor ?? '#2563eb',
-      fillColor: o.fillColor ?? 'rgba(37, 99, 235, 0.18)',
-      name: o.name ?? '',
+      strokeColor: o.strokeColor ?? "#2563eb",
+      fillColor: o.fillColor ?? "rgba(37, 99, 235, 0.18)",
+      name: o.name ?? "",
       center: o.center ?? null,
     })),
   );
@@ -61,9 +61,9 @@ export function buildNaverMapHtml(
       lat: m.lat,
       lng: m.lng,
       name: m.name,
-      role: m.role ?? '',
-      color: m.color ?? '#16a34a',
-      kind: m.kind ?? 'person',
+      role: m.role ?? "",
+      color: m.color ?? "#16a34a",
+      kind: m.kind ?? "person",
     })),
   );
 
@@ -260,4 +260,3 @@ export function buildNaverMapHtml(
 </body>
 </html>`;
 }
-

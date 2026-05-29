@@ -45,8 +45,13 @@
     "seed:auth-db": "node scripts/seed-auth-db.mjs",
     "build:configure": "eas build:configure",
     "build:preview": "eas build --platform android --profile preview",
+    "build:preview:ios": "eas build --platform ios --profile preview",
+    "build:preview:all": "eas build --platform all --profile preview",
     "build:production": "eas build --platform android --profile production",
-    "submit:internal": "eas submit --platform android --profile production"
+    "build:production:ios": "eas build --platform ios --profile production",
+    "build:production:all": "eas build --platform all --profile production",
+    "submit:internal": "eas submit --platform android --profile production",
+    "submit:internal:ios": "eas submit --platform ios --profile production"
   },
   "private": true
 }
